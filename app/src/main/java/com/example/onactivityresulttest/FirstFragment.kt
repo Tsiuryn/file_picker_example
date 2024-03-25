@@ -55,12 +55,13 @@ class FirstFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         binding.buttonFirst.setOnClickListener {
-           filePicker.launch(object : FilePickerResultCallback{
-               override fun result(file: File) {
-                   binding.fileName.text = file.name
-               }
+            filePicker.launch(filePickerResult = object : FilePickerResultCallback{
+                override fun result(file: File) {
+                    binding.fileName.text = file.name
+                }
 
-           })
+            }, options = FilePickerOptions(availableExtension = arrayOf(FileExtension.PDF)))
+
         }
     }
 

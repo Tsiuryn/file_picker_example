@@ -11,37 +11,62 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import androidx.appcompat.app.AppCompatActivity
+import kotlinx.coroutines.withContext
 
-import kotlin.coroutines.CoroutineContext
+private const val DOCUMENT_WORD_DOC = "application/msword"
+private const val DOCUMENT_WORD_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+private const val DOCUMENT_EXCEL_XLS = "application/vnd.ms-excel"
+private const val DOCUMENT_EXCEL_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+private const val DOCUMENT_PDF = "application/pdf"
+private const val DOCUMENT_IMAGE = "image/*"
+private const val DOCUMENT_CSV = "text/csv"
+private const val DOCUMENT_ZIP = "application/zip"
 
-private val documentInput = arrayOf(
-    "application/pdf",
-    "application/msword",
-    "application/vnd.ms-excel",
-    "application/zip",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
+private const val FILE_PICKER_TAG = "FilePicker"
+
+private val defaultDocumentInput = arrayOf(
+    DOCUMENT_PDF,
+    DOCUMENT_WORD_DOC,
+    DOCUMENT_EXCEL_XLS,
+    DOCUMENT_ZIP,
+    DOCUMENT_WORD_DOCX,
+    DOCUMENT_EXCEL_XLSX,
     "application/vnd.ms-excel.sheet.macroEnabled.12",
-    "image/*",
-    "text/csv",
+    DOCUMENT_IMAGE,
+    DOCUMENT_CSV,
 )
-    private val BUFFER_SIZE = 1024 * 1024
-    private val SLASH = "/"
-    private val CONTENT = "content"
-    private val DEFAULT_FILE_NAME = "DEFAULT_FILE_NAME"
+    private const val BUFFER_SIZE = 1024 * 1024
+    private const val SLASH = "/"
+    private const val CONTENT = "content"
+    private const val DEFAULT_FILE_NAME = "DEFAULT_FILE_NAME"
 
 
 interface FilePickerResultCallback{
     fun result(file: File)
 }
+
+enum class FileExtension(val documentInput: String){
+    DOC(DOCUMENT_WORD_DOC),
+    DOCX(DOCUMENT_WORD_DOCX),
+    XLS(DOCUMENT_EXCEL_XLS),
+    XLSX(DOCUMENT_EXCEL_XLSX),
+    IMAGE(DOCUMENT_IMAGE),
+    CSV(DOCUMENT_CSV),
+    ZIP(DOCUMENT_ZIP),
+    PDF(DOCUMENT_PDF)
+}
+
+class FilePickerOptions(
+    val availableExtension: Array<FileExtension>? = null,
+    val maxSizeInByte: Int = BUFFER_SIZE
+)
 
 /**
  * A class [FilePicker] must be initialized before the activity is created.
@@ -74,12 +99,15 @@ class FilePicker {
         }
     }
 
-    fun launch(filePickerResult: FilePickerResultCallback){
+    fun launch(filePickerResult: FilePickerResultCallback, options: FilePickerOptions = FilePickerOptions()){
         if(fragment!= null){
             this.activity = fragment!!.requireActivity()
             this.context = fragment!!.requireContext()
         }
         this.filePickerResult = filePickerResult
+        val documentInput: Array<String> = options.availableExtension?.map {
+            it.documentInput
+        }?.toTypedArray() ?: defaultDocumentInput
         getDocument.launch(documentInput)
     }
 
@@ -87,7 +115,9 @@ class FilePicker {
         uri?.let {
             CoroutineScope(Dispatchers.IO).launch {
                 val file = getFileFromUri(it)
-                filePickerResult?.result(file)
+                withContext(Dispatchers.Main){
+                    filePickerResult?.result(file)
+                }
             }
         }
     }
@@ -108,7 +138,7 @@ class FilePicker {
                 }
             }
         } catch (e: Throwable) {
-//        Log.e("Get file from uri error: $e")
+            Log.e(FILE_PICKER_TAG,"Get file from uri error: $e")
         }
 
         return file
